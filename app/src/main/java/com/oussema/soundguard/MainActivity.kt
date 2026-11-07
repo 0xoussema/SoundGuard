@@ -17,53 +17,83 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.ViewModelProvider
+import com.oussema.soundguard.data.NoiseReadingRepository
+import com.oussema.soundguard.data.SoundGuardDatabase
+import com.oussema.soundguard.data.viewmodel.SoundGuardViewModel
+import com.oussema.soundguard.data.viewmodel.SoundGuardViewModelFactory
 import com.oussema.soundguard.ui.theme.SoundGuardTheme
 import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.components.Description
+import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
-import com.github.mikephil.charting.components.Description
-import com.github.mikephil.charting.components.XAxis
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val database = SoundGuardDatabase.getDatabase(applicationContext)
+        val repository = NoiseReadingRepository(database.noiseReadingDao())
+        val factory = SoundGuardViewModelFactory(repository)
+
+        val viewModel = ViewModelProvider(this, factory)
+            .get(SoundGuardViewModel::class.java)
+
         setContent {
             SoundGuardTheme {
-                SoundGuardDashboard()
+                SoundGuardDashboard(viewModel)
             }
         }
     }
 }
 
 @Composable
-fun SoundGuardDashboard() {
+fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
+
     var noiseLevel by remember { mutableIntStateOf(48) }
     var exposureSeconds by remember { mutableIntStateOf(0) }
+    var showClearConfirmation by remember { mutableStateOf(false) }
 
-    val noiseHistory = remember {
-        mutableStateListOf(48f, 52f, 55f, 49f, 60f, 57f, 63f)
+    val savedReadings by viewModel.readings.collectAsState()
+
+    // Beginning of today
+    val startOfToday = remember {
+        java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
     }
+
+    // Today's readings
+    val todayReadings = savedReadings.filter {
+        it.timestamp >= startOfToday
+    }
+
+    // Latest 20 readings for chart
+    val noiseHistory = savedReadings
+        .asReversed()
+        .takeLast(20)
+        .map { it.decibelLevel }
 
     val backgroundColor = Color(0xFF0B1220)
     val cardColor = Color(0xFF172235)
     val accentColor = Color(0xFF38BDF8)
 
-    // Simulate noise readings every 2 seconds
-    LaunchedEffect(Unit) {
+    // Simulated sensor readings
+    LaunchedEffect(viewModel) {
         while (true) {
             delay(2000)
 
             val newLevel = (40..95).random()
             noiseLevel = newLevel
 
-            noiseHistory.add(newLevel.toFloat())
-
-            if (noiseHistory.size > 20) {
-                noiseHistory.removeAt(0)
-            }
+            viewModel.saveReading(newLevel.toFloat())
         }
     }
 
@@ -93,20 +123,20 @@ fun SoundGuardDashboard() {
         exposureSeconds % 60
     )
 
-    // Exposure statistics based on stored readings
-    val averageNoise = if (noiseHistory.isNotEmpty()) {
-        noiseHistory.average().toInt()
-    } else {
-        0
+    // Daily statistics
+    val averageNoise = if (todayReadings.isNotEmpty()) {
+        todayReadings.map { it.decibelLevel }.average().toInt()
+    } else 0
+
+    val peakNoise = todayReadings
+        .maxOfOrNull { it.decibelLevel }
+        ?.toInt() ?: 0
+
+    val highNoiseReadings = todayReadings.count {
+        it.decibelLevel >= 85f
     }
 
-    val peakNoise = noiseHistory.maxOrNull()?.toInt() ?: 0
-
-    val highNoiseReadings = noiseHistory.count {
-        it >= 85f
-    }
-
-    val totalReadings = noiseHistory.size
+    val totalReadings = todayReadings.size
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -119,6 +149,7 @@ fun SoundGuardDashboard() {
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+
             // Header
             Text(
                 text = "SoundGuard",
@@ -211,9 +242,7 @@ fun SoundGuardDashboard() {
                     containerColor = cardColor
                 )
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "Sensor Status",
                         color = Color.White,
@@ -236,10 +265,10 @@ fun SoundGuardDashboard() {
                 }
             }
 
-            // Live noise history chart
+            // Noise history chart
             NoiseHistoryChart(readings = noiseHistory)
 
-            // Daily exposure statistics
+            // Daily statistics
             Text(
                 text = "Daily Exposure Statistics",
                 color = Color.White,
@@ -285,13 +314,64 @@ fun SoundGuardDashboard() {
                 )
             }
 
+            // Clear history button
+            Button(
+                onClick = {
+                    showClearConfirmation = true
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFDC2626)
+                )
+            ) {
+                Text("Clear History")
+            }
+
             Spacer(modifier = Modifier.height(10.dp))
         }
+    }
+
+    // Clear history confirmation dialog
+    if (showClearConfirmation) {
+        AlertDialog(
+            onDismissRequest = {
+                showClearConfirmation = false
+            },
+            title = {
+                Text("Clear History?")
+            },
+            text = {
+                Text("Are you sure you want to delete all saved noise readings?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteHistory()
+                        showClearConfirmation = false
+                    }
+                ) {
+                    Text(
+                        "Delete",
+                        color = Color.Red
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showClearConfirmation = false
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
 @Composable
 fun NoiseHistoryChart(readings: List<Float>) {
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -301,9 +381,8 @@ fun NoiseHistoryChart(readings: List<Float>) {
         ),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+
             Text(
                 text = "Noise History",
                 color = Color.White,
@@ -356,6 +435,7 @@ fun NoiseHistoryChart(readings: List<Float>) {
                     }
                 },
                 update = { chart ->
+
                     val entries = readings.mapIndexed { index, value ->
                         Entry(index.toFloat(), value)
                     }
@@ -397,9 +477,8 @@ fun InfoCard(
         ),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+
             Text(
                 text = title,
                 color = Color.LightGray,
