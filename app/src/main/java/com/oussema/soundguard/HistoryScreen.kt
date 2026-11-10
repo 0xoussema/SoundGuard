@@ -1,20 +1,27 @@
 
 package com.oussema.soundguard
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -34,13 +41,45 @@ private val AccentColor = Color(0xFF38BDF8)
 @Composable
 fun HistoryScreen(readings: List<NoiseReading>) {
 
-    val today = LocalDate.now()
+    var selectedFilter by remember {
+        mutableStateOf("All")
+    }
 
-    val groupedReadings = readings
+    val today = LocalDate.now()
+    val zone = ZoneId.systemDefault()
+
+    val todayStart = today.atStartOfDay(zone)
+        .toInstant().toEpochMilli()
+
+    val sevenDaysStart = today.minusDays(6)
+        .atStartOfDay(zone)
+        .toInstant().toEpochMilli()
+
+    val thirtyDaysStart = today.minusDays(29)
+        .atStartOfDay(zone)
+        .toInstant().toEpochMilli()
+
+    val filteredReadings = when (selectedFilter) {
+        "Today" -> readings.filter {
+            it.timestamp >= todayStart
+        }
+
+        "7 Days" -> readings.filter {
+            it.timestamp >= sevenDaysStart
+        }
+
+        "30 Days" -> readings.filter {
+            it.timestamp >= thirtyDaysStart
+        }
+
+        else -> readings
+    }
+
+    val groupedReadings = filteredReadings
         .sortedByDescending { it.timestamp }
         .groupBy {
             Instant.ofEpochMilli(it.timestamp)
-                .atZone(ZoneId.systemDefault())
+                .atZone(zone)
                 .toLocalDate()
         }
 
@@ -70,11 +109,43 @@ fun HistoryScreen(readings: List<NoiseReading>) {
                 )
             )
 
-            if (readings.isEmpty()) {
+            // History filters
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Today", "7 Days", "30 Days", "All").forEach { filter ->
+
+                    FilterChip(
+                        selected = selectedFilter == filter,
+                        onClick = {
+                            selectedFilter = filter
+                        },
+                        label = {
+                            Text(filter)
+                        }
+                    )
+                }
+            }
+
+            Text(
+                text = "${filteredReadings.size} readings found",
+                color = Color.LightGray,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(
+                    top = 12.dp,
+                    bottom = 8.dp
+                )
+            )
+
+            if (filteredReadings.isEmpty()) {
 
                 Text(
-                    text = "No readings recorded yet.",
-                    color = Color.LightGray
+                    text = "No readings found for this period.",
+                    color = Color.LightGray,
+                    modifier = Modifier.padding(top = 16.dp)
                 )
 
             } else {
