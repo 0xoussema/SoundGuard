@@ -45,7 +45,47 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             SoundGuardTheme {
-                SoundGuardDashboard(viewModel)
+                SoundGuardApp(viewModel)
+            }
+        }
+    }
+}
+
+@Composable
+fun SoundGuardApp(viewModel: SoundGuardViewModel) {
+
+    var selectedScreen by remember { mutableStateOf("Dashboard") }
+
+    val savedReadings by viewModel.readings.collectAsState()
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = selectedScreen == "Dashboard",
+                    onClick = { selectedScreen = "Dashboard" },
+                    icon = { Text("⌂", fontSize = 22.sp) },
+                    label = { Text("Dashboard") }
+                )
+
+                NavigationBarItem(
+                    selected = selectedScreen == "History",
+                    onClick = { selectedScreen = "History" },
+                    icon = { Text("◷", fontSize = 22.sp) },
+                    label = { Text("History") }
+                )
+            }
+        }
+    ) { innerPadding ->
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            when (selectedScreen) {
+                "Dashboard" -> SoundGuardDashboard(viewModel)
+                "History" -> HistoryScreen(readings = savedReadings)
             }
         }
     }
@@ -60,7 +100,6 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
 
     val savedReadings by viewModel.readings.collectAsState()
 
-    // Beginning of today
     val startOfToday = remember {
         java.util.Calendar.getInstance().apply {
             set(java.util.Calendar.HOUR_OF_DAY, 0)
@@ -70,12 +109,10 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
         }.timeInMillis
     }
 
-    // Today's readings
     val todayReadings = savedReadings.filter {
         it.timestamp >= startOfToday
     }
 
-    // Latest 20 readings for chart
     val noiseHistory = savedReadings
         .asReversed()
         .takeLast(20)
@@ -85,7 +122,6 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
     val cardColor = Color(0xFF172235)
     val accentColor = Color(0xFF38BDF8)
 
-    // Simulated sensor readings
     LaunchedEffect(viewModel) {
         while (true) {
             delay(2000)
@@ -97,7 +133,6 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
         }
     }
 
-    // Exposure timer
     LaunchedEffect(Unit) {
         while (true) {
             delay(1000)
@@ -123,7 +158,6 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
         exposureSeconds % 60
     )
 
-    // Daily statistics
     val averageNoise = if (todayReadings.isNotEmpty()) {
         todayReadings.map { it.decibelLevel }.average().toInt()
     } else 0
@@ -150,7 +184,6 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
 
-            // Header
             Text(
                 text = "SoundGuard",
                 fontSize = 30.sp,
@@ -164,7 +197,6 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
                 fontSize = 14.sp
             )
 
-            // Current noise level
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -208,7 +240,6 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
                 }
             }
 
-            // Monitoring overview
             Text(
                 text = "Monitoring Overview",
                 color = Color.White,
@@ -235,7 +266,6 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
                 )
             }
 
-            // Sensor status
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -265,10 +295,8 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
                 }
             }
 
-            // Noise history chart
             NoiseHistoryChart(readings = noiseHistory)
 
-            // Daily statistics
             Text(
                 text = "Daily Exposure Statistics",
                 color = Color.White,
@@ -314,7 +342,6 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
                 )
             }
 
-            // Clear history button
             Button(
                 onClick = {
                     showClearConfirmation = true
@@ -331,7 +358,6 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
         }
     }
 
-    // Clear history confirmation dialog
     if (showClearConfirmation) {
         AlertDialog(
             onDismissRequest = {
@@ -350,10 +376,7 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
                         showClearConfirmation = false
                     }
                 ) {
-                    Text(
-                        "Delete",
-                        color = Color.Red
-                    )
+                    Text("Delete", color = Color.Red)
                 }
             },
             dismissButton = {
