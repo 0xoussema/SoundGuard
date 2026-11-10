@@ -1,6 +1,8 @@
 
 package com.oussema.soundguard
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -24,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.oussema.soundguard.data.NoiseReading
 import java.time.Instant
@@ -40,6 +44,8 @@ private val AccentColor = Color(0xFF38BDF8)
 
 @Composable
 fun HistoryScreen(readings: List<NoiseReading>) {
+
+    val context = LocalContext.current
 
     var selectedFilter by remember {
         mutableStateOf("All")
@@ -63,16 +69,25 @@ fun HistoryScreen(readings: List<NoiseReading>) {
         "Today" -> readings.filter {
             it.timestamp >= todayStart
         }
-
         "7 Days" -> readings.filter {
             it.timestamp >= sevenDaysStart
         }
-
         "30 Days" -> readings.filter {
             it.timestamp >= thirtyDaysStart
         }
-
         else -> readings
+    }
+
+    val csvLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri != null) {
+            CsvExporter.export(
+                context = context,
+                uri = uri,
+                readings = filteredReadings
+            )
+        }
     }
 
     val groupedReadings = filteredReadings
@@ -109,25 +124,25 @@ fun HistoryScreen(readings: List<NoiseReading>) {
                 )
             )
 
-            // History filters
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf("Today", "7 Days", "30 Days", "All").forEach { filter ->
+                listOf("Today", "7 Days", "30 Days", "All")
+                    .forEach { filter ->
 
-                    FilterChip(
-                        selected = selectedFilter == filter,
-                        onClick = {
-                            selectedFilter = filter
-                        },
-                        label = {
-                            Text(filter)
-                        }
-                    )
-                }
+                        FilterChip(
+                            selected = selectedFilter == filter,
+                            onClick = {
+                                selectedFilter = filter
+                            },
+                            label = {
+                                Text(filter)
+                            }
+                        )
+                    }
             }
 
             Text(
@@ -139,6 +154,18 @@ fun HistoryScreen(readings: List<NoiseReading>) {
                     bottom = 8.dp
                 )
             )
+
+            Button(
+                onClick = {
+                    csvLauncher.launch("soundguard_history.csv")
+                },
+                enabled = filteredReadings.isNotEmpty(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp)
+            ) {
+                Text("Export CSV")
+            }
 
             if (filteredReadings.isEmpty()) {
 
@@ -153,7 +180,6 @@ fun HistoryScreen(readings: List<NoiseReading>) {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-
                     groupedReadings.forEach { (date, dailyReadings) ->
 
                         item(key = "header_$date") {
@@ -184,7 +210,6 @@ fun HistoryScreen(readings: List<NoiseReading>) {
                             items = dailyReadings,
                             key = { it.id }
                         ) { reading ->
-
                             HistoryReadingCard(reading)
                         }
                     }
@@ -217,16 +242,13 @@ fun HistoryReadingCard(reading: NoiseReading) {
         ),
         shape = MaterialTheme.shapes.large
     ) {
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-
             Column {
-
                 Text(
                     text = time,
                     style = MaterialTheme.typography.titleMedium,
