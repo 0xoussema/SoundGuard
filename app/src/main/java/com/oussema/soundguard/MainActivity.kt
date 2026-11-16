@@ -4,8 +4,10 @@ package com.oussema.soundguard
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -31,6 +33,14 @@ import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import kotlinx.coroutines.delay
 
+private val BackgroundColor = Color(0xFF0B1220)
+private val CardColor = Color(0xFF172235)
+private val AccentColor = Color(0xFF38BDF8)
+private val MutedColor = Color(0xFF94A3B8)
+private val GreenColor = Color(0xFF4ADE80)
+private val YellowColor = Color(0xFFFACC15)
+private val RedColor = Color(0xFFF87171)
+
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,25 +64,53 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun SoundGuardApp(viewModel: SoundGuardViewModel) {
 
-    var selectedScreen by remember { mutableStateOf("Dashboard") }
+    var selectedScreen by remember {
+        mutableStateOf("Dashboard")
+    }
 
     val savedReadings by viewModel.readings.collectAsState()
 
     Scaffold(
+        containerColor = BackgroundColor,
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                containerColor = Color(0xFF111827),
+                tonalElevation = 0.dp
+            ) {
                 NavigationBarItem(
                     selected = selectedScreen == "Dashboard",
                     onClick = { selectedScreen = "Dashboard" },
-                    icon = { Text("⌂", fontSize = 22.sp) },
-                    label = { Text("Dashboard") }
+                    icon = {
+                        Text("⌂", fontSize = 24.sp)
+                    },
+                    label = {
+                        Text("Dashboard")
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = AccentColor,
+                        selectedTextColor = AccentColor,
+                        unselectedIconColor = MutedColor,
+                        unselectedTextColor = MutedColor,
+                        indicatorColor = Color(0xFF26364D)
+                    )
                 )
 
                 NavigationBarItem(
                     selected = selectedScreen == "History",
                     onClick = { selectedScreen = "History" },
-                    icon = { Text("◷", fontSize = 22.sp) },
-                    label = { Text("History") }
+                    icon = {
+                        Text("◷", fontSize = 24.sp)
+                    },
+                    label = {
+                        Text("History")
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = AccentColor,
+                        selectedTextColor = AccentColor,
+                        unselectedIconColor = MutedColor,
+                        unselectedTextColor = MutedColor,
+                        indicatorColor = Color(0xFF26364D)
+                    )
                 )
             }
         }
@@ -94,9 +132,17 @@ fun SoundGuardApp(viewModel: SoundGuardViewModel) {
 @Composable
 fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
 
-    var noiseLevel by remember { mutableIntStateOf(48) }
-    var exposureSeconds by remember { mutableIntStateOf(0) }
-    var showClearConfirmation by remember { mutableStateOf(false) }
+    var noiseLevel by remember {
+        mutableIntStateOf(48)
+    }
+
+    var exposureSeconds by remember {
+        mutableIntStateOf(0)
+    }
+
+    var showClearConfirmation by remember {
+        mutableStateOf(false)
+    }
 
     val savedReadings by viewModel.readings.collectAsState()
 
@@ -118,17 +164,11 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
         .takeLast(20)
         .map { it.decibelLevel }
 
-    val backgroundColor = Color(0xFF0B1220)
-    val cardColor = Color(0xFF172235)
-    val accentColor = Color(0xFF38BDF8)
-
     LaunchedEffect(viewModel) {
         while (true) {
             delay(2000)
-
             val newLevel = (40..95).random()
             noiseLevel = newLevel
-
             viewModel.saveReading(newLevel.toFloat())
         }
     }
@@ -147,9 +187,9 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
     }
 
     val statusColor = when {
-        noiseLevel < 55 -> Color(0xFF4ADE80)
-        noiseLevel < 75 -> Color(0xFFFACC15)
-        else -> Color(0xFFF87171)
+        noiseLevel < 55 -> GreenColor
+        noiseLevel < 75 -> YellowColor
+        else -> RedColor
     }
 
     val exposureTime = String.format(
@@ -163,8 +203,7 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
     } else 0
 
     val peakNoise = todayReadings
-        .maxOfOrNull { it.decibelLevel }
-        ?.toInt() ?: 0
+        .maxOfOrNull { it.decibelLevel }?.toInt() ?: 0
 
     val highNoiseReadings = todayReadings.count {
         it.decibelLevel >= 85f
@@ -172,190 +211,366 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
 
     val totalReadings = todayReadings.size
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = backgroundColor
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BackgroundColor)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 22.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+
+        // HEADER
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-
-            Text(
-                text = "SoundGuard",
-                fontSize = 30.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-
-            Text(
-                text = "Smart Noise Exposure Monitor",
-                color = Color.LightGray,
-                fontSize = 14.sp
-            )
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = cardColor
-                ),
-                shape = RoundedCornerShape(20.dp)
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(
+                        AccentColor.copy(alpha = 0.15f),
+                        RoundedCornerShape(15.dp)
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Text(
+                    text = "♫",
+                    color = AccentColor,
+                    fontSize = 27.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.width(13.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "SoundGuard",
+                    color = Color.White,
+                    fontSize = 25.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "Noise Exposure Monitor",
+                    color = MutedColor,
+                    fontSize = 12.sp
+                )
+            }
+
+            Surface(
+                color = GreenColor.copy(alpha = 0.12f),
+                shape = CircleShape
+            ) {
+                Row(
+                    modifier = Modifier.padding(
+                        horizontal = 11.dp,
+                        vertical = 8.dp
+                    ),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "CURRENT NOISE LEVEL",
-                        color = Color.LightGray,
-                        fontSize = 14.sp
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .background(GreenColor, CircleShape)
                     )
 
-                    Spacer(modifier = Modifier.height(15.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
 
                     Text(
-                        text = "$noiseLevel",
-                        fontSize = 64.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = accentColor
-                    )
-
-                    Text(
-                        text = "dB",
-                        fontSize = 20.sp,
-                        color = Color.White
-                    )
-
-                    Spacer(modifier = Modifier.height(15.dp))
-
-                    Text(
-                        text = noiseStatus,
-                        color = statusColor,
-                        fontSize = 20.sp,
+                        text = "ACTIVE",
+                        color = GreenColor,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
+        }
 
-            Text(
-                text = "Monitoring Overview",
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
+        // CURRENT NOISE LEVEL
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = CardColor
+            ),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(22.dp)
+            ) {
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "CURRENT NOISE LEVEL",
+                        color = MutedColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+
+                    Text(
+                        text = "LIVE",
+                        color = AccentColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Text(
+                        text = "$noiseLevel",
+                        color = Color.White,
+                        fontSize = 76.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        text = "dB",
+                        color = MutedColor,
+                        fontSize = 22.sp,
+                        modifier = Modifier.padding(
+                            start = 8.dp,
+                            bottom = 14.dp
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        color = statusColor.copy(alpha = 0.15f),
+                        shape = CircleShape
+                    ) {
+                        Text(
+                            text = noiseStatus.uppercase(),
+                            color = statusColor,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(
+                                horizontal = 15.dp,
+                                vertical = 7.dp
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    Text(
+                        text = when {
+                            noiseLevel < 55 -> "Low noise detected"
+                            noiseLevel < 75 -> "Moderate noise detected"
+                            else -> "Elevated noise detected"
+                        },
+                        color = MutedColor,
+                        fontSize = 11.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(10.dp)
+                        .background(
+                            Color(0xFF334155),
+                            CircleShape
+                        )
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(
+                                noiseLevel.coerceIn(0, 100) / 100f
+                            )
+                            .fillMaxHeight()
+                            .background(statusColor, CircleShape)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(9.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("0 dB", color = MutedColor, fontSize = 10.sp)
+                    Text("Noise intensity", color = MutedColor, fontSize = 10.sp)
+                    Text("100 dB", color = MutedColor, fontSize = 10.sp)
+                }
+            }
+        }
+
+        // MONITORING OVERVIEW
+
+        SectionTitle("Monitoring Overview")
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            InfoCard(
+                title = "Exposure Time",
+                value = exposureTime,
+                modifier = Modifier.weight(1f),
+                cardColor = CardColor,
+                accentColor = AccentColor
             )
 
+            InfoCard(
+                title = "Current Level",
+                value = "$noiseLevel dB",
+                modifier = Modifier.weight(1f),
+                cardColor = CardColor,
+                accentColor = AccentColor
+            )
+        }
+
+        // SENSOR STATUS
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = CardColor
+            ),
+            shape = RoundedCornerShape(18.dp)
+        ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                InfoCard(
-                    title = "Exposure Time",
-                    value = exposureTime,
-                    modifier = Modifier.weight(1f),
-                    cardColor = cardColor
-                )
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(
+                            GreenColor.copy(alpha = 0.13f),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "●",
+                        color = GreenColor,
+                        fontSize = 19.sp
+                    )
+                }
 
-                InfoCard(
-                    title = "Current Level",
-                    value = "$noiseLevel dB",
-                    modifier = Modifier.weight(1f),
-                    cardColor = cardColor
-                )
-            }
+                Spacer(modifier = Modifier.width(14.dp))
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = cardColor
-                )
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text(
                         text = "Sensor Status",
                         color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "● LIVE SIMULATION",
-                        color = Color(0xFF4ADE80)
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
                     )
 
                     Text(
-                        text = "Receiving simulated sensor readings",
-                        color = Color.LightGray,
-                        fontSize = 12.sp
+                        text = "Receiving simulated readings",
+                        color = MutedColor,
+                        fontSize = 11.sp
                     )
                 }
+
+                Text(
+                    text = "SIMULATION",
+                    color = GreenColor,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
+        }
 
-            NoiseHistoryChart(readings = noiseHistory)
+        // NOISE CHART
 
-            Text(
-                text = "Daily Exposure Statistics",
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
+        NoiseHistoryChart(readings = noiseHistory)
+
+        // DAILY STATISTICS
+
+        SectionTitle("Daily Exposure Statistics")
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            InfoCard(
+                title = "Average Noise",
+                value = "$averageNoise dB",
+                modifier = Modifier.weight(1f),
+                cardColor = CardColor,
+                accentColor = AccentColor
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                InfoCard(
-                    title = "Average Noise",
-                    value = "$averageNoise dB",
-                    modifier = Modifier.weight(1f),
-                    cardColor = cardColor
-                )
-
-                InfoCard(
-                    title = "Peak Noise",
-                    value = "$peakNoise dB",
-                    modifier = Modifier.weight(1f),
-                    cardColor = cardColor
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                InfoCard(
-                    title = "High Readings",
-                    value = "$highNoiseReadings",
-                    modifier = Modifier.weight(1f),
-                    cardColor = cardColor
-                )
-
-                InfoCard(
-                    title = "Total Readings",
-                    value = "$totalReadings",
-                    modifier = Modifier.weight(1f),
-                    cardColor = cardColor
-                )
-            }
-
-            Button(
-                onClick = {
-                    showClearConfirmation = true
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFDC2626)
-                )
-            ) {
-                Text("Clear History")
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
+            InfoCard(
+                title = "Peak Noise",
+                value = "$peakNoise dB",
+                modifier = Modifier.weight(1f),
+                cardColor = CardColor,
+                accentColor = RedColor
+            )
         }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            InfoCard(
+                title = "High Readings",
+                value = "$highNoiseReadings",
+                modifier = Modifier.weight(1f),
+                cardColor = CardColor,
+                accentColor = YellowColor
+            )
+
+            InfoCard(
+                title = "Total Readings",
+                value = "$totalReadings",
+                modifier = Modifier.weight(1f),
+                cardColor = CardColor,
+                accentColor = AccentColor
+            )
+        }
+
+        // CLEAR HISTORY
+
+        OutlinedButton(
+            onClick = {
+                showClearConfirmation = true
+            },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = RedColor
+            )
+        ) {
+            Text(
+                text = "Clear History",
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
     }
 
     if (showClearConfirmation) {
@@ -367,7 +582,9 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
                 Text("Clear History?")
             },
             text = {
-                Text("Are you sure you want to delete all saved noise readings?")
+                Text(
+                    "Are you sure you want to delete all saved noise readings?"
+                )
             },
             confirmButton = {
                 TextButton(
@@ -393,19 +610,30 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
 }
 
 @Composable
+fun SectionTitle(title: String) {
+    Text(
+        text = title,
+        color = Color.White,
+        fontSize = 18.sp,
+        fontWeight = FontWeight.Bold
+    )
+}
+
+@Composable
 fun NoiseHistoryChart(readings: List<Float>) {
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(280.dp),
+            .height(290.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF1E293B)
+            containerColor = CardColor
         ),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(20.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-
+        Column(
+            modifier = Modifier.padding(18.dp)
+        ) {
             Text(
                 text = "Noise History",
                 color = Color.White,
@@ -417,7 +645,7 @@ fun NoiseHistoryChart(readings: List<Float>) {
 
             Text(
                 text = "Last 20 readings · Updates every 2 seconds",
-                color = Color.LightGray,
+                color = MutedColor,
                 fontSize = 11.sp
             )
 
@@ -491,29 +719,34 @@ fun InfoCard(
     title: String,
     value: String,
     modifier: Modifier = Modifier,
-    cardColor: Color
+    cardColor: Color,
+    accentColor: Color = AccentColor
 ) {
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(
             containerColor = cardColor
         ),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(18.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
             Text(
                 text = title,
-                color = Color.LightGray,
-                fontSize = 13.sp
+                color = MutedColor,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Text(
                 text = value,
-                color = Color.White,
-                fontSize = 20.sp,
+                color = accentColor,
+                fontSize = 21.sp,
                 fontWeight = FontWeight.Bold
             )
         }

@@ -1,5 +1,6 @@
 
 package com.oussema.soundguard
+import androidx.activity.compose.rememberLauncherForActivityResult
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,6 +38,8 @@ import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.text.SimpleDateFormat
 import java.util.Locale
+import android.content.Intent
+import android.widget.Toast
 
 private val BackgroundColor = Color(0xFF0B1220)
 private val CardColor = Color(0xFF172235)
@@ -82,11 +85,39 @@ fun HistoryScreen(readings: List<NoiseReading>) {
         contract = ActivityResultContracts.CreateDocument("text/csv")
     ) { uri ->
         if (uri != null) {
-            CsvExporter.export(
-                context = context,
-                uri = uri,
-                readings = filteredReadings
-            )
+            try {
+                CsvExporter.export(
+                    context = context,
+                    uri = uri,
+                    readings = filteredReadings
+                )
+
+                Toast.makeText(
+                    context,
+                    "CSV exported successfully!",
+                    Toast.LENGTH_SHORT
+                ).show()
+
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/csv"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+
+                context.startActivity(
+                    Intent.createChooser(
+                        shareIntent,
+                        "Share SoundGuard Report"
+                    )
+                )
+
+            } catch (e: Exception) {
+                Toast.makeText(
+                    context,
+                    "Export failed: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
     }
 
