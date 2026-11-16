@@ -70,6 +70,18 @@ fun SoundGuardApp(viewModel: SoundGuardViewModel) {
 
     val savedReadings by viewModel.readings.collectAsState()
 
+    // Timer stays alive while switching between screens
+    var exposureSeconds by remember {
+        mutableIntStateOf(0)
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000)
+            exposureSeconds++
+        }
+    }
+
     Scaffold(
         containerColor = BackgroundColor,
         bottomBar = {
@@ -122,7 +134,11 @@ fun SoundGuardApp(viewModel: SoundGuardViewModel) {
                 .padding(innerPadding)
         ) {
             when (selectedScreen) {
-                "Dashboard" -> SoundGuardDashboard(viewModel)
+                "Dashboard" -> SoundGuardDashboard(
+                    viewModel = viewModel,
+                    exposureSeconds = exposureSeconds
+                )
+
                 "History" -> HistoryScreen(readings = savedReadings)
             }
         }
@@ -130,14 +146,13 @@ fun SoundGuardApp(viewModel: SoundGuardViewModel) {
 }
 
 @Composable
-fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
+fun SoundGuardDashboard(
+    viewModel: SoundGuardViewModel,
+    exposureSeconds: Int
+) {
 
     var noiseLevel by remember {
         mutableIntStateOf(48)
-    }
-
-    var exposureSeconds by remember {
-        mutableIntStateOf(0)
     }
 
     var showClearConfirmation by remember {
@@ -170,13 +185,6 @@ fun SoundGuardDashboard(viewModel: SoundGuardViewModel) {
             val newLevel = (40..95).random()
             noiseLevel = newLevel
             viewModel.saveReading(newLevel.toFloat())
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(1000)
-            exposureSeconds++
         }
     }
 
